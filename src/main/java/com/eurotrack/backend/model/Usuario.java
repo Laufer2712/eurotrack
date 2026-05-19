@@ -1,6 +1,8 @@
 package com.eurotrack.backend.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuarios")
@@ -28,9 +30,24 @@ public class Usuario {
     private String tipoCliente;
 
     @Column(columnDefinition = "TEXT")
-    private String fotoPerfil; 
+    private String fotoPerfil;
     
-    // Getters y Setters
+    // 🔥 NUEVOS CAMPOS
+    @Column(name = "telefono")
+    private String telefono;
+    
+    @Column(name = "activo")
+    private Boolean activo = true;
+    
+    // Código de respaldo (existente)
+    @Column(unique = true)
+    private String codigoRespaldo;
+    
+    private Boolean codigoRespaldoUsado = false;
+    
+    private LocalDateTime codigoRespaldoGeneradoEn;
+    
+    // Getters y Setters existentes...
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     
@@ -57,4 +74,20 @@ public class Usuario {
     
     public String getFotoPerfil() { return fotoPerfil; }
     public void setFotoPerfil(String fotoPerfil) { this.fotoPerfil = fotoPerfil; }
+    
+    // 🔥 NUEVOS GETTERS Y SETTERS
+    public String getTelefono() { return telefono; }
+    public void setTelefono(String telefono) { this.telefono = telefono; }
+    
+    public Boolean getActivo() { return activo; }
+    public void setActivo(Boolean activo) { this.activo = activo; }
+    
+    public String getCodigoRespaldo() { return codigoRespaldo; }
+    public void setCodigoRespaldo(String codigoRespaldo) { this.codigoRespaldo = codigoRespaldo; }
+    
+    public Boolean getCodigoRespaldoUsado() { return codigoRespaldoUsado; }
+    public void setCodigoRespaldoUsado(Boolean codigoRespaldoUsado) { this.codigoRespaldoUsado = codigoRespaldoUsado; }
+    
+    public LocalDateTime getCodigoRespaldoGeneradoEn() { return codigoRespaldoGeneradoEn; }
+    public void setCodigoRespaldoGeneradoEn(LocalDateTime codigoRespaldoGeneradoEn) { this.codigoRespaldoGeneradoEn = codigoRespaldoGeneradoEn; }
 }

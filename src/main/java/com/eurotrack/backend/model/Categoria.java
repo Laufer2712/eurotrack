@@ -1,6 +1,7 @@
 package com.eurotrack.backend.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;  // ← Agrega esta importación
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,15 +13,16 @@ public class Categoria {
     private Long id;
     
     @Column(nullable = false, unique = true)
-    private String nombre;  // Volvo, Scania, Mercedes, International, Kenworth, etc.
+    private String nombre;
     
     private String descripcion;
     private String imagenUrl;
     
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL)
+    @JsonIgnore  // ← AGREGA ESTA LÍNEA
     private List<Producto> productos = new ArrayList<>();
     
-    // Getters y Setters
+    // Getters y Setters (mantén los que ya tienes)
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     

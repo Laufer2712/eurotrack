@@ -1,5 +1,6 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.CategoriaDTO;
 import com.eurotrack.backend.model.Categoria;
 import com.eurotrack.backend.repository.CategoriaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/categorias")
@@ -17,15 +19,18 @@ public class CategoriaController {
     private CategoriaRepository categoriaRepository;
 
     @GetMapping
-    public List<Categoria> getAll() {
-        return categoriaRepository.findAll();
+    public List<CategoriaDTO> getAll() {
+        List<Categoria> categorias = categoriaRepository.findAll();
+        return categorias.stream()
+            .map(CategoriaDTO::new)
+            .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Categoria> getById(@PathVariable Long id) {
+    public ResponseEntity<CategoriaDTO> getById(@PathVariable Long id) {
         return categoriaRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+            .map(categoria -> ResponseEntity.ok(new CategoriaDTO(categoria)))
+            .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping

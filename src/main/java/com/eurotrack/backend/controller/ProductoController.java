@@ -1,5 +1,6 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.ProductoDTO;
 import com.eurotrack.backend.model.Producto;
 import com.eurotrack.backend.repository.CategoriaRepository;
 import com.eurotrack.backend.repository.ProductoRepository;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/productos")
@@ -20,18 +22,42 @@ public class ProductoController {
     @Autowired
     private CategoriaRepository categoriaRepository;
 
-    // ========== ADMINISTRACIÓN ==========
+    // 🔥 CATÁLOGO - Devuelve DTOs en lugar de entidades
+    @GetMapping("/catalogo")
+    public List<ProductoDTO> getCatalogo() {
+        List<Producto> productos = productoRepository.findCatalogo();
+        return productos.stream()
+            .map(ProductoDTO::new)
+            .collect(Collectors.toList());
+    }
     
-    @GetMapping
-    public List<Producto> getAll() {
-        return productoRepository.findAll();
+    @GetMapping("/catalogo/categoria/{categoriaId}")
+    public List<ProductoDTO> getCatalogoByCategoria(@PathVariable Long categoriaId) {
+        List<Producto> productos = productoRepository.findCatalogoByCategoria(categoriaId);
+        return productos.stream()
+            .map(ProductoDTO::new)
+            .collect(Collectors.toList());
+    }
+    
+    @GetMapping("/buscar")
+    public List<ProductoDTO> buscar(@RequestParam String q) {
+        List<Producto> productos = productoRepository.findByNombreContainingIgnoreCase(q);
+        return productos.stream()
+            .map(ProductoDTO::new)
+            .collect(Collectors.toList());
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Producto> getById(@PathVariable Long id) {
+    public ResponseEntity<ProductoDTO> getById(@PathVariable Long id) {
         return productoRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+            .map(producto -> ResponseEntity.ok(new ProductoDTO(producto)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+    
+    // Mantén los métodos de administración como estaban (sin DTOs)
+    @GetMapping
+    public List<Producto> getAll() {
+        return productoRepository.findAll();
     }
     
     @PostMapping
@@ -74,32 +100,5 @@ public class ProductoController {
         }
         productoRepository.deleteById(id);
         return ResponseEntity.ok().build();
-    }
-    
-    // ========== CATÁLOGO (para la app) ==========
-    
-    @GetMapping("/catalogo")
-    public List<Producto> getCatalogo() {
-        return productoRepository.findCatalogo();
-    }
-    
-    @GetMapping("/catalogo/categoria/{categoriaId}")
-    public List<Producto> getCatalogoByCategoria(@PathVariable Long categoriaId) {
-        return productoRepository.findCatalogoByCategoria(categoriaId);
-    }
-    
-    @GetMapping("/buscar")
-    public List<Producto> buscar(@RequestParam String q) {
-        return productoRepository.findByNombreContainingIgnoreCase(q);
-    }
-    
-    @GetMapping("/buscar/marca")
-    public List<Producto> buscarPorMarca(@RequestParam String marca) {
-        return productoRepository.findByMarcaContainingIgnoreCase(marca);
-    }
-    
-    @GetMapping("/categoria/{categoriaId}")
-    public List<Producto> getByCategoria(@PathVariable Long categoriaId) {
-        return productoRepository.findByCategoriaId(categoriaId);
     }
 }

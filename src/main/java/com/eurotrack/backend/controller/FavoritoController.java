@@ -1,7 +1,7 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.FavoritoDTO;
 import com.eurotrack.backend.model.Favorito;
-import com.eurotrack.backend.model.Producto;
 import com.eurotrack.backend.repository.FavoritoRepository;
 import com.eurotrack.backend.repository.ProductoRepository;
 import com.eurotrack.backend.repository.UsuarioRepository;
@@ -28,7 +28,7 @@ public class FavoritoController {
     @Autowired
     private ProductoRepository productoRepository;
 
-    // Obtener todos los favoritos de un usuario
+    // 🔥 MODIFICADO: Devuelve DTOs
     @GetMapping("/usuario/{usuarioId}")
     public ResponseEntity<?> getFavoritosByUsuario(@PathVariable Long usuarioId) {
         if (!usuarioRepository.existsById(usuarioId)) {
@@ -36,14 +36,14 @@ public class FavoritoController {
         }
         
         List<Favorito> favoritos = favoritoRepository.findByUsuarioId(usuarioId);
-        List<Producto> productos = favoritos.stream()
-                .map(Favorito::getProducto)
-                .collect(Collectors.toList());
+        List<FavoritoDTO> favoritosDTO = favoritos.stream()
+            .map(FavoritoDTO::new)
+            .collect(Collectors.toList());
         
-        return ResponseEntity.ok(productos);
+        return ResponseEntity.ok(favoritosDTO);
     }
     
-    // Verificar si un producto está en favoritos
+    // Verificar si un producto está en favoritos (sin cambios)
     @GetMapping("/check")
     public ResponseEntity<?> checkFavorito(@RequestParam Long usuarioId, @RequestParam Long productoId) {
         boolean existe = favoritoRepository.existsByUsuarioIdAndProductoId(usuarioId, productoId);
@@ -52,7 +52,7 @@ public class FavoritoController {
         return ResponseEntity.ok(response);
     }
     
-    // Agregar a favoritos
+    // Agregar a favoritos (sin cambios)
     @PostMapping("/agregar")
     public ResponseEntity<?> agregarFavorito(@RequestBody Map<String, Long> data) {
         Long usuarioId = data.get("usuarioId");
@@ -79,7 +79,7 @@ public class FavoritoController {
         return ResponseEntity.ok().body("Agregado a favoritos");
     }
     
-    // Eliminar de favoritos
+    // Eliminar de favoritos (sin cambios)
     @DeleteMapping("/eliminar")
     public ResponseEntity<?> eliminarFavorito(@RequestParam Long usuarioId, @RequestParam Long productoId) {
         if (!favoritoRepository.existsByUsuarioIdAndProductoId(usuarioId, productoId)) {
@@ -91,7 +91,7 @@ public class FavoritoController {
         return ResponseEntity.ok().body("Eliminado de favoritos");
     }
     
-    // Alternar favorito (toggle)
+    // Alternar favorito (toggle) (sin cambios)
     @PostMapping("/toggle")
     public ResponseEntity<?> toggleFavorito(@RequestBody Map<String, Long> data) {
         Long usuarioId = data.get("usuarioId");

@@ -1,5 +1,7 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.CategoriaDTO;
+import com.eurotrack.backend.dto.ProductoDTO;
 import com.eurotrack.backend.model.Categoria;
 import com.eurotrack.backend.model.Producto;
 import com.eurotrack.backend.model.Usuario;
@@ -13,8 +15,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -35,16 +40,13 @@ public class AdminController {
 
     // ========== GESTIÓN DE USUARIOS ==========
     
-    // Obtener todos los usuarios
     @GetMapping("/usuarios")
     public List<Usuario> getAllUsuarios() {
         List<Usuario> usuarios = usuarioRepository.findAll();
-        // Ocultar contraseñas
         usuarios.forEach(u -> u.setPassword(null));
         return usuarios;
     }
     
-    // Obtener usuario por ID
     @GetMapping("/usuarios/{id}")
     public ResponseEntity<?> getUsuarioById(@PathVariable Long id) {
         return usuarioRepository.findById(id)
@@ -55,7 +57,6 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
     
-    // Crear usuario (admin)
     @PostMapping("/usuarios")
     public ResponseEntity<?> createUsuario(@RequestBody Usuario nuevoUsuario) {
         if (usuarioRepository.findByEmail(nuevoUsuario.getEmail()).isPresent()) {
@@ -66,12 +67,12 @@ public class AdminController {
         }
         
         nuevoUsuario.setPassword(passwordUtil.encode(nuevoUsuario.getPassword()));
+        nuevoUsuario.setActivo(true);
         Usuario saved = usuarioRepository.save(nuevoUsuario);
         saved.setPassword(null);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
     
-    // Actualizar usuario
     @PutMapping("/usuarios/{id}")
     public ResponseEntity<?> updateUsuario(@PathVariable Long id, @RequestBody Usuario usuarioActualizado) {
         return usuarioRepository.findById(id).map(usuario -> {
@@ -81,6 +82,7 @@ public class AdminController {
             if (usuarioActualizado.getCedula() != null) usuario.setCedula(usuarioActualizado.getCedula());
             if (usuarioActualizado.getRol() != null) usuario.setRol(usuarioActualizado.getRol());
             if (usuarioActualizado.getTipoCliente() != null) usuario.setTipoCliente(usuarioActualizado.getTipoCliente());
+            if (usuarioActualizado.getTelefono() != null) usuario.setTelefono(usuarioActualizado.getTelefono());
             if (usuarioActualizado.getPassword() != null && !usuarioActualizado.getPassword().isEmpty()) {
                 usuario.setPassword(passwordUtil.encode(usuarioActualizado.getPassword()));
             }
@@ -91,7 +93,6 @@ public class AdminController {
         }).orElse(ResponseEntity.notFound().build());
     }
     
-    // Eliminar usuario
     @DeleteMapping("/usuarios/{id}")
     public ResponseEntity<?> deleteUsuario(@PathVariable Long id) {
         if (!usuarioRepository.existsById(id)) {
@@ -101,25 +102,46 @@ public class AdminController {
         return ResponseEntity.ok().body("Usuario eliminado");
     }
     
-    // Cambiar rol de usuario
     @PatchMapping("/usuarios/{id}/rol")
-    public ResponseEntity<?> cambiarRol(@PathVariable Long id, @RequestBody Map<String, String> data) {
+    public ResponseEntity<?> cambiarRol(@PathVariable Long id, @RequestBody Map<String, String> data, 
+                                        @RequestHeader(value = "adminId", required = false) Long adminId) {
         return usuarioRepository.findById(id).map(usuario -> {
-            usuario.setRol(data.get("rol"));
+            String nuevoRol = data.get("rol");
+            
+            if (adminId != null && adminId.equals(id) && !nuevoRol.equals("ADMIN")) {
+                return ResponseEntity.badRequest().body("No puedes cambiar tu propio rol de administrador");
+            }
+            
+            usuario.setRol(nuevoRol);
             usuarioRepository.save(usuario);
-            return ResponseEntity.ok().body("Rol actualizado a: " + data.get("rol"));
+            return ResponseEntity.ok().body("Rol actualizado a: " + nuevoRol);
         }).orElse(ResponseEntity.notFound().build());
     }
     
-    // ========== GESTIÓN DE PRODUCTOS (ADMIN) ==========
-    
-    // Obtener todos los productos (incluyendo inactivos)
-    @GetMapping("/productos")
-    public List<Producto> getAllProductos() {
-        return productoRepository.findAll();
+    @PatchMapping("/usuarios/{id}/toggle-activo")
+    public ResponseEntity<?> toggleUsuarioActivo(@PathVariable Long id, @RequestHeader(value = "adminId", required = false) Long adminId) {
+        return usuarioRepository.findById(id).map(usuario -> {
+            if (adminId != null && adminId.equals(id)) {
+                return ResponseEntity.badRequest().body("No puedes desactivar tu propia cuenta");
+            }
+            
+            usuario.setActivo(!usuario.getActivo());
+            usuarioRepository.save(usuario);
+            String estado = usuario.getActivo() ? "activado" : "desactivado";
+            return ResponseEntity.ok().body("Usuario " + estado);
+        }).orElse(ResponseEntity.notFound().build());
     }
     
-    // Crear producto
+    // ========== GESTIÓN DE PRODUCTOS (ADMIN) con DTO ==========
+    
+    @GetMapping("/productos")
+    public List<ProductoDTO> getAllProductos() {
+        List<Producto> productos = productoRepository.findAll();
+        return productos.stream()
+            .map(ProductoDTO::new)
+            .collect(Collectors.toList());
+    }
+    
     @PostMapping("/productos")
     public ResponseEntity<?> createProducto(@RequestBody Producto producto) {
         if (producto.getCategoria() != null && producto.getCategoria().getId() != null) {
@@ -135,10 +157,9 @@ public class AdminController {
         if (producto.getActivo() == null) producto.setActivo(true);
         
         Producto saved = productoRepository.save(producto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new ProductoDTO(saved));
     }
     
-    // Actualizar producto
     @PutMapping("/productos/{id}")
     public ResponseEntity<?> updateProducto(@PathVariable Long id, @RequestBody Producto productoActualizado) {
         return productoRepository.findById(id).map(producto -> {
@@ -157,11 +178,10 @@ public class AdminController {
                 categoria.ifPresent(producto::setCategoria);
             }
             
-            return ResponseEntity.ok(productoRepository.save(producto));
+            return ResponseEntity.ok(new ProductoDTO(productoRepository.save(producto)));
         }).orElse(ResponseEntity.notFound().build());
     }
     
-    // Eliminar producto (borrado físico)
     @DeleteMapping("/productos/{id}")
     public ResponseEntity<?> deleteProducto(@PathVariable Long id) {
         if (!productoRepository.existsById(id)) {
@@ -171,7 +191,6 @@ public class AdminController {
         return ResponseEntity.ok().body("Producto eliminado");
     }
     
-    // Desactivar producto (borrado lógico)
     @PatchMapping("/productos/{id}/toggle")
     public ResponseEntity<?> toggleProductoActivo(@PathVariable Long id) {
         return productoRepository.findById(id).map(producto -> {
@@ -182,30 +201,35 @@ public class AdminController {
         }).orElse(ResponseEntity.notFound().build());
     }
     
-    // ========== GESTIÓN DE CATEGORÍAS (ADMIN) ==========
+    // ========== GESTIÓN DE CATEGORÍAS (ADMIN) con DTO ==========
     
-    // Crear categoría
+    @GetMapping("/categorias")
+    public List<CategoriaDTO> getCategorias() {
+        List<Categoria> categorias = categoriaRepository.findAll();
+        return categorias.stream()
+            .map(CategoriaDTO::new)
+            .collect(Collectors.toList());
+    }
+    
     @PostMapping("/categorias")
     public ResponseEntity<?> createCategoria(@RequestBody Categoria categoria) {
         if (categoriaRepository.findByNombre(categoria.getNombre()).isPresent()) {
             return ResponseEntity.badRequest().body("La categoría ya existe");
         }
         Categoria saved = categoriaRepository.save(categoria);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new CategoriaDTO(saved));
     }
     
-    // Actualizar categoría
     @PutMapping("/categorias/{id}")
     public ResponseEntity<?> updateCategoria(@PathVariable Long id, @RequestBody Categoria categoriaActualizada) {
         return categoriaRepository.findById(id).map(categoria -> {
             if (categoriaActualizada.getNombre() != null) categoria.setNombre(categoriaActualizada.getNombre());
             if (categoriaActualizada.getDescripcion() != null) categoria.setDescripcion(categoriaActualizada.getDescripcion());
             if (categoriaActualizada.getImagenUrl() != null) categoria.setImagenUrl(categoriaActualizada.getImagenUrl());
-            return ResponseEntity.ok(categoriaRepository.save(categoria));
+            return ResponseEntity.ok(new CategoriaDTO(categoriaRepository.save(categoria)));
         }).orElse(ResponseEntity.notFound().build());
     }
     
-    // Eliminar categoría
     @DeleteMapping("/categorias/{id}")
     public ResponseEntity<?> deleteCategoria(@PathVariable Long id) {
         if (!categoriaRepository.existsById(id)) {

@@ -1,5 +1,7 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.PedidoDTO;
+import com.eurotrack.backend.dto.DetallePedidoDTO;  // ← AGREGA ESTA IMPORTACIÓN
 import com.eurotrack.backend.model.DetallePedido;
 import com.eurotrack.backend.model.Pedido;
 import com.eurotrack.backend.model.Producto;
@@ -16,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/pedidos")
@@ -36,17 +39,18 @@ public class PedidoController {
 
     // ========== CLIENTE ==========
     
-    // Obtener todos los pedidos de un usuario
     @GetMapping("/usuario/{usuarioId}")
     public ResponseEntity<?> getPedidosByUsuario(@PathVariable Long usuarioId) {
         if (!usuarioRepository.existsById(usuarioId)) {
             return ResponseEntity.notFound().build();
         }
         List<Pedido> pedidos = pedidoRepository.findByUsuarioId(usuarioId);
-        return ResponseEntity.ok(pedidos);
+        List<PedidoDTO> pedidosDTO = pedidos.stream()
+            .map(PedidoDTO::new)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(pedidosDTO);
     }
     
-    // Crear un nuevo pedido
     @PostMapping("/crear")
     public ResponseEntity<?> crearPedido(@RequestBody Map<String, Object> pedidoData) {
         try {
@@ -60,7 +64,6 @@ public class PedidoController {
                 return ResponseEntity.badRequest().body("Usuario no encontrado");
             }
             
-            // Crear pedido
             Pedido pedido = new Pedido();
             pedido.setUsuario(usuarioOpt.get());
             pedido.setFecha(LocalDateTime.now());
@@ -71,7 +74,6 @@ public class PedidoController {
             double total = 0.0;
             Pedido pedidoGuardado = pedidoRepository.save(pedido);
             
-            // Crear detalles del pedido
             for (Map<String, Object> item : items) {
                 Long productoId = ((Number) item.get("productoId")).longValue();
                 Integer cantidad = (Integer) item.get("cantidad");
@@ -94,7 +96,6 @@ public class PedidoController {
                 
                 detallePedidoRepository.save(detalle);
                 
-                // Actualizar stock
                 producto.setStock(producto.getStock() - cantidad);
                 productoRepository.save(producto);
             }
@@ -115,7 +116,6 @@ public class PedidoController {
         }
     }
     
-    // Obtener detalle de un pedido específico
     @GetMapping("/{pedidoId}")
     public ResponseEntity<?> getPedidoDetalle(@PathVariable Long pedidoId) {
         var pedidoOpt = pedidoRepository.findById(pedidoId);
@@ -127,13 +127,14 @@ public class PedidoController {
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoId(pedidoId);
         
         Map<String, Object> response = new HashMap<>();
-        response.put("pedido", pedido);
-        response.put("detalles", detalles);
+        response.put("pedido", new PedidoDTO(pedido));
+        response.put("detalles", detalles.stream()
+            .map(DetallePedidoDTO::new)
+            .collect(Collectors.toList()));
         
         return ResponseEntity.ok(response);
     }
     
-    // Cancelar pedido (solo si está pendiente)
     @PutMapping("/cancelar/{pedidoId}")
     public ResponseEntity<?> cancelarPedido(@PathVariable Long pedidoId) {
         var pedidoOpt = pedidoRepository.findById(pedidoId);
@@ -154,13 +155,14 @@ public class PedidoController {
     
     // ========== ADMIN ==========
     
-    // Obtener todos los pedidos (admin)
     @GetMapping("/admin/todos")
-    public List<Pedido> getAllPedidos() {
-        return pedidoRepository.findAll();
+    public List<PedidoDTO> getAllPedidos() {
+        List<Pedido> pedidos = pedidoRepository.findAll();
+        return pedidos.stream()
+            .map(PedidoDTO::new)
+            .collect(Collectors.toList());
     }
     
-    // Actualizar estado del pedido (admin)
     @PutMapping("/admin/estado/{pedidoId}")
     public ResponseEntity<?> actualizarEstado(@PathVariable Long pedidoId, @RequestBody Map<String, String> data) {
         var pedidoOpt = pedidoRepository.findById(pedidoId);
@@ -171,7 +173,6 @@ public class PedidoController {
         Pedido pedido = pedidoOpt.get();
         String nuevoEstado = data.get("estado");
         
-        // Estados válidos: PENDIENTE, PAGADO, ENVIADO, ENTREGADO, CANCELADO
         pedido.setEstado(nuevoEstado);
         pedidoRepository.save(pedido);
         

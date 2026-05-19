@@ -1,34 +1,41 @@
-package com.eurotrack.backend.model;
+package com.eurotrack.backend.dto;
 
-import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonIgnore;  // ← Agrega esta importación
-import java.math.BigDecimal;
+import com.eurotrack.backend.model.Producto;
+import java.math.BigDecimal;  // ← Agrega esto
 
-@Entity
-@Table(name = "productos")
-public class Producto {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class ProductoDTO {
     private Long id;
-    
-    @Column(nullable = false)
     private String nombre;
-    
     private String descripcion;
     private String codigo;
     private String numeroParte;
     private String marca;
-    private BigDecimal precio;
+    private BigDecimal precio;  // ← Cambiado a BigDecimal
     private Integer stock;
     private String imagenUrl;
-    private Boolean activo = true;
+    private Boolean activo;
+    private Long categoriaId;
+    private String categoriaNombre;
     
-    @ManyToOne
-    @JoinColumn(name = "categoria_id")
-    @JsonIgnore  // ← AGREGA ESTA LÍNEA
-    private Categoria categoria;
+    public ProductoDTO(Producto producto) {
+        this.id = producto.getId();
+        this.nombre = producto.getNombre();
+        this.descripcion = producto.getDescripcion();
+        this.codigo = producto.getCodigo();
+        this.numeroParte = producto.getNumeroParte();
+        this.marca = producto.getMarca();
+        this.precio = producto.getPrecio();  // BigDecimal
+        this.stock = producto.getStock();
+        this.imagenUrl = producto.getImagenUrl();
+        this.activo = producto.getActivo();
+        
+        if (producto.getCategoria() != null) {
+            this.categoriaId = producto.getCategoria().getId();
+            this.categoriaNombre = producto.getCategoria().getNombre();
+        }
+    }
     
-    // Getters y Setters (mantén los que ya tienes)
+    // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     
@@ -59,6 +66,9 @@ public class Producto {
     public Boolean getActivo() { return activo; }
     public void setActivo(Boolean activo) { this.activo = activo; }
     
-    public Categoria getCategoria() { return categoria; }
-    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
+    public Long getCategoriaId() { return categoriaId; }
+    public void setCategoriaId(Long categoriaId) { this.categoriaId = categoriaId; }
+    
+    public String getCategoriaNombre() { return categoriaNombre; }
+    public void setCategoriaNombre(String categoriaNombre) { this.categoriaNombre = categoriaNombre; }
 }

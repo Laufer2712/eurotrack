@@ -1,5 +1,6 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.DetallePedidoDTO;
 import com.eurotrack.backend.model.DetallePedido;
 import com.eurotrack.backend.repository.DetallePedidoRepository;
 import com.eurotrack.backend.repository.PedidoRepository;
@@ -7,9 +8,10 @@ import com.eurotrack.backend.repository.ProductoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/detalles-pedido")
@@ -25,45 +27,54 @@ public class DetallePedidoController {
     @Autowired
     private ProductoRepository productoRepository;
 
-    // Obtener todos los detalles de un pedido específico
+    // 🔥 MODIFICADO: Devuelve DTOs
     @GetMapping("/pedido/{pedidoId}")
     public ResponseEntity<?> getDetallesByPedido(@PathVariable Long pedidoId) {
         if (!pedidoRepository.existsById(pedidoId)) {
             return ResponseEntity.notFound().build();
         }
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoId(pedidoId);
-        return ResponseEntity.ok(detalles);
+        List<DetallePedidoDTO> detallesDTO = detalles.stream()
+            .map(DetallePedidoDTO::new)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(detallesDTO);
     }
 
-    // Obtener un detalle específico por ID
+    // 🔥 MODIFICADO: Devuelve DTO
     @GetMapping("/{id}")
     public ResponseEntity<?> getDetalleById(@PathVariable Long id) {
         return detallePedidoRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(detalle -> ResponseEntity.ok(new DetallePedidoDTO(detalle)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Obtener todos los detalles de un producto específico (para reportes)
+    // 🔥 MODIFICADO: Devuelve DTOs
     @GetMapping("/producto/{productoId}")
     public ResponseEntity<?> getDetallesByProducto(@PathVariable Long productoId) {
         if (!productoRepository.existsById(productoId)) {
             return ResponseEntity.notFound().build();
         }
         List<DetallePedido> detalles = detallePedidoRepository.findByProductoId(productoId);
-        return ResponseEntity.ok(detalles);
+        List<DetallePedidoDTO> detallesDTO = detalles.stream()
+            .map(DetallePedidoDTO::new)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(detallesDTO);
     }
 
-    // Obtener detalle por pedido y producto (si existe)
+    // 🔥 MODIFICADO: Devuelve DTOs
     @GetMapping("/buscar")
     public ResponseEntity<?> getDetalleByPedidoAndProducto(
             @RequestParam Long pedidoId,
             @RequestParam Long productoId) {
         
         List<DetallePedido> detalles = detallePedidoRepository.findByPedidoIdAndProductoId(pedidoId, productoId);
-        return ResponseEntity.ok(detalles);
+        List<DetallePedidoDTO> detallesDTO = detalles.stream()
+            .map(DetallePedidoDTO::new)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(detallesDTO);
     }
 
-    // Actualizar cantidad de un detalle (útil si se modifica un pedido)
+    // Actualizar cantidad de un detalle (sin cambios - es operación de administración)
     @PatchMapping("/{id}/cantidad")
     public ResponseEntity<?> updateCantidad(@PathVariable Long id, @RequestBody Map<String, Integer> data) {
         return detallePedidoRepository.findById(id).map(detalle -> {
@@ -87,11 +98,11 @@ public class DetallePedidoController {
             pedido.setTotal(nuevoTotal);
             pedidoRepository.save(pedido);
             
-            return ResponseEntity.ok(detalle);
+            return ResponseEntity.ok(new DetallePedidoDTO(detalle));
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // Eliminar un detalle (útil si se cancela un producto del pedido)
+    // Eliminar un detalle (sin cambios - es operación de administración)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteDetalle(@PathVariable Long id) {
         return detallePedidoRepository.findById(id).map(detalle -> {

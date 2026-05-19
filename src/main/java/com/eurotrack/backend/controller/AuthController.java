@@ -1,5 +1,6 @@
 package com.eurotrack.backend.controller;
 
+import com.eurotrack.backend.dto.UsuarioDTO;
 import com.eurotrack.backend.model.Usuario;
 import com.eurotrack.backend.repository.UsuarioRepository;
 import com.eurotrack.backend.util.PasswordUtil;
@@ -8,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -23,6 +26,30 @@ public class AuthController {
     @Autowired
     private PasswordUtil passwordUtil;
 
+    // Constantes para generar código de respaldo
+    private static final String CODIGO_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789";
+    private static final int CODIGO_LENGTH = 8;
+    private static final SecureRandom random = new SecureRandom();
+
+    // Generar código único (formato XXXX-XXXX)
+    private String generarCodigoRespaldo() {
+        StringBuilder codigo = new StringBuilder(CODIGO_LENGTH);
+        for (int i = 0; i < CODIGO_LENGTH; i++) {
+            if (i == 4) codigo.append('-');
+            codigo.append(CODIGO_CHARACTERS.charAt(random.nextInt(CODIGO_CHARACTERS.length())));
+        }
+        return codigo.toString();
+    }
+
+    // Asegurar código único
+    private String generarCodigoUnico() {
+        String codigo;
+        do {
+            codigo = generarCodigoRespaldo();
+        } while (usuarioRepository.findByCodigoRespaldo(codigo).isPresent());
+        return codigo;
+    }
+
     // LOGIN
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> loginData) {
@@ -34,6 +61,11 @@ public class AuthController {
 
         if (usuarioOpt.isPresent()) {
             Usuario user = usuarioOpt.get();
+            // 🔥 Verificar si el usuario está activo
+            if (user.getActivo() == null || !user.getActivo()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario desactivado. Contacta al administrador.");
+            }
+            
             if (passwordUtil.matches(password, user.getPassword())) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("id", user.getId());
@@ -43,6 +75,8 @@ public class AuthController {
                 response.put("rol", user.getRol());
                 response.put("tipoCliente", user.getTipoCliente());
                 response.put("fotoPerfil", user.getFotoPerfil()); 
+                response.put("telefono", user.getTelefono());
+                response.put("activo", user.getActivo());
                 
                 return ResponseEntity.ok(response);
             }
@@ -50,10 +84,9 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciales incorrectas");
     }
 
-    // REGISTRO
+    // REGISTRO - Genera código de respaldo y teléfono
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Usuario nuevoUsuario) {
-        // Validaciones
         if (usuarioRepository.findByEmail(nuevoUsuario.getEmail()).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("El correo electrónico ya está registrado");
         }
@@ -67,18 +100,33 @@ public class AuthController {
         }
 
         try {
-            // ENCRIPTAR CONTRASEÑA
             nuevoUsuario.setPassword(passwordUtil.encode(nuevoUsuario.getPassword()));
+            
+            // Generar código de respaldo
+            String codigoRespaldo = generarCodigoUnico();
+            nuevoUsuario.setCodigoRespaldo(codigoRespaldo);
+            nuevoUsuario.setCodigoRespaldoUsado(false);
+            nuevoUsuario.setCodigoRespaldoGeneradoEn(LocalDateTime.now());
+            
+            // 🔥 Por defecto, el usuario está activo
+            nuevoUsuario.setActivo(true);
+            
             Usuario usuarioGuardado = usuarioRepository.save(nuevoUsuario);
-            usuarioGuardado.setPassword(null); // No devolver la contraseña por seguridad
-            return ResponseEntity.status(HttpStatus.CREATED).body(usuarioGuardado);
+            usuarioGuardado.setPassword(null);
+            
+            // Devolver el código en la respuesta
+            Map<String, Object> response = new HashMap<>();
+            response.put("usuario", usuarioGuardado);
+            response.put("codigoRespaldo", codigoRespaldo);
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al guardar el usuario: " + e.getMessage());
         }
     }
 
-    // ACTUALIZAR PERFIL
+    // ACTUALIZAR PERFIL (NO permite editar cédula)
     @PutMapping("/update-profile/{id}")
     public ResponseEntity<?> updateProfile(@PathVariable Long id, @RequestBody Map<String, String> data) {
         return usuarioRepository.findById(id).map(usuario -> {
@@ -88,8 +136,9 @@ public class AuthController {
             if (data.containsKey("username")) {
                 usuario.setUsername(data.get("username"));
             }
-            if (data.containsKey("cedula")) {
-                usuario.setCedula(data.get("cedula"));
+            // 🔥 NO permitir editar cédula - eliminado
+            if (data.containsKey("telefono")) {
+                usuario.setTelefono(data.get("telefono"));
             }
             if (data.containsKey("fotoPerfil") && data.get("fotoPerfil") != null) {
                 usuario.setFotoPerfil(data.get("fotoPerfil"));
@@ -117,14 +166,90 @@ public class AuthController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // OBTENER PERFIL
+    // OBTENER PERFIL - Devuelve DTO
     @GetMapping("/profile/{id}")
     public ResponseEntity<?> getProfile(@PathVariable Long id) {
         return usuarioRepository.findById(id)
                 .map(usuario -> {
-                    usuario.setPassword(null);
-                    return ResponseEntity.ok(usuario);
+                    UsuarioDTO usuarioDTO = new UsuarioDTO(usuario);
+                    return ResponseEntity.ok(usuarioDTO);
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ========== MÉTODOS PARA CÓDIGO DE RESPALDO ==========
+
+    // OBTENER CÓDIGO DE RESPALDO DEL USUARIO
+    @GetMapping("/mi-codigo-respaldo/{userId}")
+    public ResponseEntity<?> getMiCodigoRespaldo(@PathVariable Long userId) {
+        return usuarioRepository.findById(userId).map(usuario -> {
+            Map<String, Object> response = new HashMap<>();
+            response.put("codigoRespaldo", usuario.getCodigoRespaldo());
+            response.put("usado", usuario.getCodigoRespaldoUsado());
+            response.put("generadoEn", usuario.getCodigoRespaldoGeneradoEn());
+            return ResponseEntity.ok(response);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // VALIDAR CÓDIGO DE RESPALDO (antes de cambiar contraseña)
+    @PostMapping("/validar-codigo-respaldo")
+    public ResponseEntity<?> validarCodigoRespaldo(@RequestBody Map<String, String> request) {
+        String codigoRespaldo = request.get("codigoRespaldo");
+        
+        if (codigoRespaldo == null || codigoRespaldo.isEmpty()) {
+            return ResponseEntity.badRequest().body("Código requerido");
+        }
+        
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByCodigoRespaldo(codigoRespaldo);
+        
+        if (usuarioOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Código de respaldo inválido");
+        }
+        
+        Usuario usuario = usuarioOpt.get();
+        
+        if (usuario.getCodigoRespaldoUsado()) {
+            return ResponseEntity.badRequest().body("Este código de respaldo ya fue utilizado");
+        }
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("valido", true);
+        response.put("usuarioId", usuario.getId());
+        response.put("usuarioNombre", usuario.getNombre());
+        response.put("usuarioEmail", usuario.getEmail());
+        return ResponseEntity.ok(response);
+    }
+
+    // RECUPERAR CONTRASEÑA USANDO CÓDIGO DE RESPALDO
+    @PostMapping("/recuperar-con-codigo")
+    public ResponseEntity<?> recuperarConCodigo(@RequestBody Map<String, String> request) {
+        String codigoRespaldo = request.get("codigoRespaldo");
+        String nuevaPassword = request.get("nuevaPassword");
+        
+        if (codigoRespaldo == null || nuevaPassword == null) {
+            return ResponseEntity.badRequest().body("Código y nueva contraseña requeridos");
+        }
+        
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByCodigoRespaldo(codigoRespaldo);
+        
+        if (usuarioOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Código de respaldo inválido");
+        }
+        
+        Usuario usuario = usuarioOpt.get();
+        
+        if (usuario.getCodigoRespaldoUsado()) {
+            return ResponseEntity.badRequest().body("Este código de respaldo ya fue utilizado");
+        }
+        
+        // Actualizar contraseña
+        usuario.setPassword(passwordUtil.encode(nuevaPassword));
+        usuario.setCodigoRespaldoUsado(true);
+        usuarioRepository.save(usuario);
+        
+        Map<String, String> response = new HashMap<>();
+        response.put("mensaje", "Contraseña actualizada exitosamente");
+        response.put("usuarioId", usuario.getId().toString());
+        return ResponseEntity.ok(response);
     }
 }
