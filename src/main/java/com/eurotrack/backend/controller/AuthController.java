@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -25,6 +26,9 @@ public class AuthController {
     
     @Autowired
     private PasswordUtil passwordUtil;
+    
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     // Constantes para generar código de respaldo
     private static final String CODIGO_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789";
@@ -221,35 +225,35 @@ public class AuthController {
     }
 
     // RECUPERAR CONTRASEÑA USANDO CÓDIGO DE RESPALDO
-    @PostMapping("/recuperar-con-codigo")
-    public ResponseEntity<?> recuperarConCodigo(@RequestBody Map<String, String> request) {
-        String codigoRespaldo = request.get("codigoRespaldo");
-        String nuevaPassword = request.get("nuevaPassword");
-        
-        if (codigoRespaldo == null || nuevaPassword == null) {
-            return ResponseEntity.badRequest().body("Código y nueva contraseña requeridos");
-        }
-        
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByCodigoRespaldo(codigoRespaldo);
-        
-        if (usuarioOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Código de respaldo inválido");
-        }
-        
-        Usuario usuario = usuarioOpt.get();
-        
-        if (usuario.getCodigoRespaldoUsado()) {
-            return ResponseEntity.badRequest().body("Este código de respaldo ya fue utilizado");
-        }
-        
-        // Actualizar contraseña
-        usuario.setPassword(passwordUtil.encode(nuevaPassword));
-        usuario.setCodigoRespaldoUsado(true);
-        usuarioRepository.save(usuario);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("mensaje", "Contraseña actualizada exitosamente");
-        response.put("usuarioId", usuario.getId().toString());
+@PostMapping("/recuperar-con-codigo")
+public ResponseEntity<?> recuperarConCodigo(@RequestBody Map<String, String> request) {
+    String codigoRespaldo = request.get("codigoRespaldo");
+    String nuevaPassword = request.get("nuevaPassword");
+
+    // Buscamos el usuario
+    Optional<Usuario> userOpt = usuarioRepository.findByCodigoRespaldo(codigoRespaldo);
+    if (userOpt.isEmpty()) return ResponseEntity.badRequest().body("Código inválido");
+    
+    Usuario user = userOpt.get();
+    String nuevoCodigo = generarCodigoUnico(); // Tu método actual
+
+    // ACTUALIZACIÓN DIRECTA (JDBC puro, ignora JPA/Hibernate)
+    String sql = "UPDATE usuarios SET password = ?, codigo_respaldo = ?, codigo_respaldo_usado = false, codigo_respaldo_generado_en = ? WHERE id = ?";
+    
+    int afectados = jdbcTemplate.update(sql, 
+        passwordUtil.encode(nuevaPassword), 
+        nuevoCodigo, 
+        java.time.LocalDateTime.now(), 
+        user.getId());
+
+    if (afectados > 0) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("nuevoCodigo", nuevoCodigo);
         return ResponseEntity.ok(response);
     }
+    
+    return ResponseEntity.status(500).body("Error crítico al actualizar");
+}
+
 }
