@@ -1,14 +1,17 @@
 package com.eurotrack.backend.controller;
 
 import com.eurotrack.backend.dto.ProductoDTO;
+import com.eurotrack.backend.model.Categoria;
 import com.eurotrack.backend.model.Producto;
 import com.eurotrack.backend.repository.CategoriaRepository;
 import com.eurotrack.backend.repository.ProductoRepository;
+import com.eurotrack.backend.util.AuditoriaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -21,8 +24,11 @@ public class ProductoController {
     
     @Autowired
     private CategoriaRepository categoriaRepository;
+    
+    @Autowired
+    private AuditoriaService auditoriaService;
 
-    // 🔥 CATÁLOGO - Devuelve DTOs en lugar de entidades
+    // ========== CATÁLOGO PÚBLICO ==========
     @GetMapping("/catalogo")
     public List<ProductoDTO> getCatalogo() {
         List<Producto> productos = productoRepository.findCatalogo();
@@ -54,27 +60,70 @@ public class ProductoController {
             .orElse(ResponseEntity.notFound().build());
     }
     
-    // Mantén los métodos de administración como estaban (sin DTOs)
     @GetMapping
     public List<Producto> getAll() {
         return productoRepository.findAll();
     }
+
+    // ========== ADMINISTRACIÓN ==========
     
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Producto producto) {
-        if (producto.getCategoria() != null && producto.getCategoria().getId() != null) {
-            var categoria = categoriaRepository.findById(producto.getCategoria().getId());
-            if (categoria.isEmpty()) {
-                return ResponseEntity.badRequest().body("La categoría no existe");
+    public ResponseEntity<?> create(@RequestBody Producto producto, 
+                                   @RequestHeader(value = "X-User-Email", required = false) String usuarioEmail) {
+        try {
+            if (producto.getCategoria() != null && producto.getCategoria().getId() != null) {
+                Optional<Categoria> categoriaOpt = categoriaRepository.findById(producto.getCategoria().getId());
+                if (categoriaOpt.isEmpty()) {
+                    auditoriaService.registrar(
+                        usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                        "CREATE_PRODUCTO_ERROR",
+                        "Intento de crear producto con categoría inexistente: " + producto.getNombre()
+                    );
+                    return ResponseEntity.badRequest().body("La categoría no existe");
+                }
+                producto.setCategoria(categoriaOpt.get());
             }
-            producto.setCategoria(categoria.get());
+            
+            Producto nuevoProducto = productoRepository.save(producto);
+            
+            auditoriaService.registrarConDatos(
+                usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                "CREATE_PRODUCTO",
+                "Producto creado: " + producto.getNombre(),
+                "productos",
+                nuevoProducto.getId(),
+                null,
+                nuevoProducto.toString(),
+                true,
+                null
+            );
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(nuevoProducto);
+        } catch (Exception e) {
+            auditoriaService.registrar(
+                usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                "CREATE_PRODUCTO_ERROR",
+                "Error al crear producto: " + producto.getNombre() + " - " + e.getMessage()
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al crear el producto: " + e.getMessage());
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(productoRepository.save(producto));
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Producto productoActualizado) {
-        return productoRepository.findById(id).map(producto -> {
+    public ResponseEntity<?> update(@PathVariable Long id, 
+                                   @RequestBody Producto productoActualizado,
+                                   @RequestHeader(value = "X-User-Email", required = false) String usuarioEmail) {
+        try {
+            Optional<Producto> productoOpt = productoRepository.findById(id);
+            
+            if (productoOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Producto producto = productoOpt.get();
+            String datosAnteriores = producto.toString();
+            
             producto.setNombre(productoActualizado.getNombre());
             producto.setDescripcion(productoActualizado.getDescripcion());
             producto.setCodigo(productoActualizado.getCodigo());
@@ -83,22 +132,91 @@ public class ProductoController {
             producto.setPrecio(productoActualizado.getPrecio());
             producto.setStock(productoActualizado.getStock());
             producto.setImagenUrl(productoActualizado.getImagenUrl());
-            producto.setActivo(productoActualizado.getActivo());
+            producto.setActivo(productoActualizado.getActivo() != null ? productoActualizado.getActivo() : true);
             
-            if (productoActualizado.getCategoria() != null && productoActualizado.getCategoria().getId() != null) {
-                var categoria = categoriaRepository.findById(productoActualizado.getCategoria().getId());
-                categoria.ifPresent(producto::setCategoria);
+            if (productoActualizado.getCategoria() != null && 
+                productoActualizado.getCategoria().getId() != null) {
+                Optional<Categoria> categoriaOpt = categoriaRepository.findById(
+                    productoActualizado.getCategoria().getId()
+                );
+                if (categoriaOpt.isPresent()) {
+                    producto.setCategoria(categoriaOpt.get());
+                } else {
+                    producto.setCategoria(null);
+                }
+            } else {
+                producto.setCategoria(null);
             }
-            return ResponseEntity.ok(productoRepository.save(producto));
-        }).orElse(ResponseEntity.notFound().build());
+            
+            Producto productoGuardado = productoRepository.save(producto);
+            
+            auditoriaService.registrarConDatos(
+                usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                "UPDATE_PRODUCTO",
+                "Producto actualizado ID: " + id,
+                "productos",
+                id,
+                datosAnteriores,
+                productoGuardado.toString(),
+                true,
+                null
+            );
+            
+            return ResponseEntity.ok(productoGuardado);
+            
+        } catch (Exception e) {
+            auditoriaService.registrar(
+                usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                "UPDATE_PRODUCTO_ERROR",
+                "Error al actualizar producto ID: " + id + " - " + e.getMessage()
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al actualizar el producto: " + e.getMessage());
+        }
     }
     
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id) {
-        if (!productoRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<?> delete(@PathVariable Long id,
+                                   @RequestHeader(value = "X-User-Email", required = false) String usuarioEmail) {
+        try {
+            Optional<Producto> productoOpt = productoRepository.findById(id);
+            
+            if (productoOpt.isEmpty()) {
+                auditoriaService.registrar(
+                    usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                    "DELETE_PRODUCTO_ERROR",
+                    "Intento de eliminar producto inexistente ID: " + id
+                );
+                return ResponseEntity.notFound().build();
+            }
+            
+            Producto producto = productoOpt.get();
+            String datosProducto = producto.toString();
+            
+            productoRepository.deleteById(id);
+            
+            auditoriaService.registrarConDatos(
+                usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                "DELETE_PRODUCTO",
+                "Producto eliminado ID: " + id,
+                "productos",
+                id,
+                datosProducto,
+                null,
+                true,
+                null
+            );
+            
+            return ResponseEntity.ok().build();
+            
+        } catch (Exception e) {
+            auditoriaService.registrar(
+                usuarioEmail != null ? usuarioEmail : "ANONIMO",
+                "DELETE_PRODUCTO_ERROR",
+                "Error al eliminar producto ID: " + id + " - " + e.getMessage()
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al eliminar el producto: " + e.getMessage());
         }
-        productoRepository.deleteById(id);
-        return ResponseEntity.ok().build();
     }
 }

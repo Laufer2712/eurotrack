@@ -16,6 +16,7 @@ public class Categoria {
     private String nombre;
     
     private String descripcion;
+     @Column(columnDefinition = "TEXT")
     private String imagenUrl;
     
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL)

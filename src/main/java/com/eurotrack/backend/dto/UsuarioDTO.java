@@ -11,8 +11,20 @@ public class UsuarioDTO {
     private String rol;
     private String tipoCliente;
     private String fotoPerfil;
-    private String telefono;  // 🔥 NUEVO
-    private Boolean activo;    // 🔥 NUEVO
+    private String telefono;
+    private Boolean activo;
+    
+    // Campos Empresa
+    private String razonSocial;
+    private String nit;
+    private String registroMercantil;
+    private String direccionFiscal;
+    private Boolean contribuyenteEspecial;
+    
+    // Campos Transportista
+    private String licenciaConducir;
+    private Integer aniosExperiencia;
+    private String tipoVehiculo;
     
     public UsuarioDTO(Usuario usuario) {
         this.id = usuario.getId();
@@ -23,11 +35,23 @@ public class UsuarioDTO {
         this.rol = usuario.getRol();
         this.tipoCliente = usuario.getTipoCliente();
         this.fotoPerfil = usuario.getFotoPerfil();
-        this.telefono = usuario.getTelefono();  // 🔥 NUEVO
-        this.activo = usuario.getActivo();      // 🔥 NUEVO
+        this.telefono = usuario.getTelefono();
+        this.activo = usuario.getActivo();
+        
+        // Campos Empresa
+        this.razonSocial = usuario.getRazonSocial();
+        this.nit = usuario.getNit();
+        this.registroMercantil = usuario.getRegistroMercantil();
+        this.direccionFiscal = usuario.getDireccionFiscal();
+        this.contribuyenteEspecial = usuario.getContribuyenteEspecial();
+        
+        // Campos Transportista
+        this.licenciaConducir = usuario.getLicenciaConducir();
+        this.aniosExperiencia = usuario.getAniosExperiencia();
+        this.tipoVehiculo = usuario.getTipoVehiculo();
     }
     
-    // Getters y Setters
+    // Getters y Setters...
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     
@@ -57,4 +81,28 @@ public class UsuarioDTO {
     
     public Boolean getActivo() { return activo; }
     public void setActivo(Boolean activo) { this.activo = activo; }
+    
+    public String getRazonSocial() { return razonSocial; }
+    public void setRazonSocial(String razonSocial) { this.razonSocial = razonSocial; }
+    
+    public String getNit() { return nit; }
+    public void setNit(String nit) { this.nit = nit; }
+    
+    public String getRegistroMercantil() { return registroMercantil; }
+    public void setRegistroMercantil(String registroMercantil) { this.registroMercantil = registroMercantil; }
+    
+    public String getDireccionFiscal() { return direccionFiscal; }
+    public void setDireccionFiscal(String direccionFiscal) { this.direccionFiscal = direccionFiscal; }
+    
+    public Boolean getContribuyenteEspecial() { return contribuyenteEspecial; }
+    public void setContribuyenteEspecial(Boolean contribuyenteEspecial) { this.contribuyenteEspecial = contribuyenteEspecial; }
+    
+    public String getLicenciaConducir() { return licenciaConducir; }
+    public void setLicenciaConducir(String licenciaConducir) { this.licenciaConducir = licenciaConducir; }
+    
+    public Integer getAniosExperiencia() { return aniosExperiencia; }
+    public void setAniosExperiencia(Integer aniosExperiencia) { this.aniosExperiencia = aniosExperiencia; }
+    
+    public String getTipoVehiculo() { return tipoVehiculo; }
+    public void setTipoVehiculo(String tipoVehiculo) { this.tipoVehiculo = tipoVehiculo; }
 }

@@ -1,7 +1,6 @@
 package com.eurotrack.backend.model;
 
 import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,27 +26,44 @@ public class Usuario {
     private String rol;
     
     @Column(name = "tipo_cliente")
-    private String tipoCliente;
+    private String tipoCliente; // NATURAL, JURIDICO, TRANSPORTISTA
 
     @Column(columnDefinition = "TEXT")
     private String fotoPerfil;
     
-    // 🔥 NUEVOS CAMPOS
     @Column(name = "telefono")
     private String telefono;
     
     @Column(name = "activo")
     private Boolean activo = true;
+
+    // ========== CAMPOS PARA EMPRESAS (JURIDICO) ==========
+    @Column(name = "razon_social")
+    private String razonSocial;
     
-    // Código de respaldo (existente)
-    @Column(unique = true)
-    private String codigoRespaldo;
+    @Column(name = "nit")
+    private String nit;
     
-    private Boolean codigoRespaldoUsado = false;
+    @Column(name = "registro_mercantil")
+    private String registroMercantil;
     
-    private LocalDateTime codigoRespaldoGeneradoEn;
+    @Column(name = "direccion_fiscal")
+    private String direccionFiscal;
     
-    // Getters y Setters existentes...
+    @Column(name = "contribuyente_especial")
+    private Boolean contribuyenteEspecial = false; // Si es contribuyente especial (impuesto diferenciado)
+
+    // ========== CAMPOS PARA TRANSPORTISTA ==========
+    @Column(name = "licencia_conducir")
+    private String licenciaConducir;
+    
+    @Column(name = "anios_experiencia")
+    private Integer aniosExperiencia;
+    
+    @Column(name = "tipo_vehiculo")
+    private String tipoVehiculo; // CAMION, FURGON, TRAILER, etc.
+
+    // Getters y Setters...
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     
@@ -75,19 +91,35 @@ public class Usuario {
     public String getFotoPerfil() { return fotoPerfil; }
     public void setFotoPerfil(String fotoPerfil) { this.fotoPerfil = fotoPerfil; }
     
-    // 🔥 NUEVOS GETTERS Y SETTERS
     public String getTelefono() { return telefono; }
     public void setTelefono(String telefono) { this.telefono = telefono; }
     
     public Boolean getActivo() { return activo; }
     public void setActivo(Boolean activo) { this.activo = activo; }
     
-    public String getCodigoRespaldo() { return codigoRespaldo; }
-    public void setCodigoRespaldo(String codigoRespaldo) { this.codigoRespaldo = codigoRespaldo; }
+    // Campos Empresa
+    public String getRazonSocial() { return razonSocial; }
+    public void setRazonSocial(String razonSocial) { this.razonSocial = razonSocial; }
     
-    public Boolean getCodigoRespaldoUsado() { return codigoRespaldoUsado; }
-    public void setCodigoRespaldoUsado(Boolean codigoRespaldoUsado) { this.codigoRespaldoUsado = codigoRespaldoUsado; }
+    public String getNit() { return nit; }
+    public void setNit(String nit) { this.nit = nit; }
     
-    public LocalDateTime getCodigoRespaldoGeneradoEn() { return codigoRespaldoGeneradoEn; }
-    public void setCodigoRespaldoGeneradoEn(LocalDateTime codigoRespaldoGeneradoEn) { this.codigoRespaldoGeneradoEn = codigoRespaldoGeneradoEn; }
+    public String getRegistroMercantil() { return registroMercantil; }
+    public void setRegistroMercantil(String registroMercantil) { this.registroMercantil = registroMercantil; }
+    
+    public String getDireccionFiscal() { return direccionFiscal; }
+    public void setDireccionFiscal(String direccionFiscal) { this.direccionFiscal = direccionFiscal; }
+    
+    public Boolean getContribuyenteEspecial() { return contribuyenteEspecial; }
+    public void setContribuyenteEspecial(Boolean contribuyenteEspecial) { this.contribuyenteEspecial = contribuyenteEspecial; }
+    
+    // Campos Transportista
+    public String getLicenciaConducir() { return licenciaConducir; }
+    public void setLicenciaConducir(String licenciaConducir) { this.licenciaConducir = licenciaConducir; }
+    
+    public Integer getAniosExperiencia() { return aniosExperiencia; }
+    public void setAniosExperiencia(Integer aniosExperiencia) { this.aniosExperiencia = aniosExperiencia; }
+    
+    public String getTipoVehiculo() { return tipoVehiculo; }
+    public void setTipoVehiculo(String tipoVehiculo) { this.tipoVehiculo = tipoVehiculo; }
 }

@@ -7,6 +7,7 @@ import com.eurotrack.backend.repository.ProductoRepository;
 import com.eurotrack.backend.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;  // ✅ Importar
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -28,7 +29,6 @@ public class FavoritoController {
     @Autowired
     private ProductoRepository productoRepository;
 
-    // 🔥 MODIFICADO: Devuelve DTOs
     @GetMapping("/usuario/{usuarioId}")
     public ResponseEntity<?> getFavoritosByUsuario(@PathVariable Long usuarioId) {
         if (!usuarioRepository.existsById(usuarioId)) {
@@ -43,7 +43,6 @@ public class FavoritoController {
         return ResponseEntity.ok(favoritosDTO);
     }
     
-    // Verificar si un producto está en favoritos (sin cambios)
     @GetMapping("/check")
     public ResponseEntity<?> checkFavorito(@RequestParam Long usuarioId, @RequestParam Long productoId) {
         boolean existe = favoritoRepository.existsByUsuarioIdAndProductoId(usuarioId, productoId);
@@ -52,7 +51,6 @@ public class FavoritoController {
         return ResponseEntity.ok(response);
     }
     
-    // Agregar a favoritos (sin cambios)
     @PostMapping("/agregar")
     public ResponseEntity<?> agregarFavorito(@RequestBody Map<String, Long> data) {
         Long usuarioId = data.get("usuarioId");
@@ -79,7 +77,6 @@ public class FavoritoController {
         return ResponseEntity.ok().body("Agregado a favoritos");
     }
     
-    // Eliminar de favoritos (sin cambios)
     @DeleteMapping("/eliminar")
     public ResponseEntity<?> eliminarFavorito(@RequestParam Long usuarioId, @RequestParam Long productoId) {
         if (!favoritoRepository.existsByUsuarioIdAndProductoId(usuarioId, productoId)) {
@@ -91,8 +88,9 @@ public class FavoritoController {
         return ResponseEntity.ok().body("Eliminado de favoritos");
     }
     
-    // Alternar favorito (toggle) (sin cambios)
+    // ✅ AGREGAR @Transactional
     @PostMapping("/toggle")
+    @Transactional  // ← Esta es la solución
     public ResponseEntity<?> toggleFavorito(@RequestBody Map<String, Long> data) {
         Long usuarioId = data.get("usuarioId");
         Long productoId = data.get("productoId");

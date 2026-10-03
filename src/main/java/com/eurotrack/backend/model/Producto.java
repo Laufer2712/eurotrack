@@ -20,6 +20,7 @@ public class Producto {
     private String marca;
     private BigDecimal precio;
     private Integer stock;
+    @Column(columnDefinition = "TEXT")
     private String imagenUrl;
     private Boolean activo = true;
     

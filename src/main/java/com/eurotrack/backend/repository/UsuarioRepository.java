@@ -11,6 +11,5 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByUsername(String username);
     Optional<Usuario> findByCedula(String cedula);
     
-    // 🔥 NUEVO MÉTODO PARA BUSCAR POR CÓDIGO DE RESPALDO
-   Optional<Usuario> findByCodigoRespaldo(String codigoRespaldo);
+  
 }
